@@ -100,11 +100,24 @@ const game = {
   //вращение как у макса вращение по индексам
   rotateTetromino() {
     console.log('Space rotate');
+    const x = this.activeTetromino.x;
+    const y = this.activeTetromino.y;
+    const block = this.activeTetromino.block;
+    let index = this.activeTetromino.rotationIndex;
+    index = (index < 3) ? index + 1 : 0;
+    const nextBlock = this.activeTetromino.rotation[index];
     //меняем индекс вращения
-    this.activeTetromino.rotationIndex = this.activeTetromino.rotationIndex < 3 ? this.activeTetromino.rotationIndex + 1 : 0;
-    //? нужно полное копирование
-    this.activeTetromino.block = JSON.parse(JSON.stringify( this.activeTetromino.rotation[this.activeTetromino.rotationIndex] ));
-    
+    //this.activeTetromino.rotationIndex = this.activeTetromino.rotationIndex < 3 ? this.activeTetromino.rotationIndex + 1 : 0;
+    //тест на столкновение при вращении
+    if ( this.checkOutRotate(x, y, nextBlock) ) {
+      this.activeTetromino.rotationIndex = index;
+      this.activeTetromino.block = JSON.parse(JSON.stringify(nextBlock));
+      //? нужно полное копирование
+      // this.activeTetromino.block = JSON.parse(JSON.stringify( this.activeTetromino.rotation[this.activeTetromino.rotationIndex] ));
+    } else {
+      //при возможном столкновении не сохраняем изменения
+      console.log('rotation colision');
+    }
   },
   
   //вращение блока по часовой стрелке
@@ -113,13 +126,6 @@ const game = {
     let a = this.activeTetromino.block;
     // изменяем индекс поворота
     this.activeTetromino.rotationIndex = this.activeTetromino.rotationIndex < 3 ? this.activeTetromino.rotationIndex + 1 : 0;
-    //todo checkOutRotate
-    // const nextBlock = [
-    // ?  ['r','0','0'],
-    // ?  ['r','r','r'],
-    // ?  ['0','0','0']
-    // ]
-
     //todo вращение по часовой стрелке ПОЭЛЕМЕНТНО
     const nextBlock = [
       [ a[2][0],a[1][0],a[0][0] ],
@@ -139,10 +145,25 @@ const game = {
     }
   },
 
+  rotateRight90(matrix = this.activeTetromino.block) {
+    //* поворот матрицы by Maks
+    let result = [];
+    for (let i = matrix.length - 1; i >= 0; i--) {
+      for (let j = 0; j < matrix[i].length; j++) {
+        if (!result[j]) {
+          result[j] = [];
+        }
+        result[j].push(matrix[i][j]);
+      }
+    }
+    console.log('matrix rotate', result);
+    return result;
+  },
+
+
   // * getter()
   //возвращает значение нового активного поля с изменениями
   get viewArea() {
-    //! копия массиа
     const area = JSON.parse( JSON.stringify(this.area) );
     // копия текущих координат и активного блока
     // ? пример деструктуризации копии объектов
@@ -214,13 +235,11 @@ const game = {
       
       for (let c = 0; c < row.length; c++) {
         const elem = row[c];
-        //проверка на дно
-        //проверка на стенки
+        //проверка на дно И стенкУ
         if ((!this.area[y+r]) || (!this.area[y+r][x+c])) {
           console.log('СТЕНКА при повороте');
           return false; //! без return будет ошибка
         }
-
         if ( this.area[y+r][x+c] !== '0' && nextRotateTetromino[r][c] !== '0' ) {
           // area[y+r][x+c] = tetromino[r][c];
           console.log('СТОЛКНОВЕНИЕ при повороте');
@@ -229,7 +248,7 @@ const game = {
       }
     }
 
-    console.log('возмож поворот !');
+    // console.log('возмож поворот !');
     return true;
   },
 
@@ -288,23 +307,24 @@ const context = canvas.getContext('2d');
 
 
 // * функц вывода одной клеточки в стакан по координатам
-// * r row
-// * c col
+// * r row * c col
 // const showBlockCoord = (r, c) => {
 function showBlockCoord(r, c) {
   context.fillRect( SIZE_BLOCK*(c), SIZE_BLOCK*(r), SIZE_BLOCK, SIZE_BLOCK);
-  context.strokeStyle = 'grey';
+  // context.strokeStyle = 'grey';
   context.strokeRect( SIZE_BLOCK*(c), SIZE_BLOCK*(r), SIZE_BLOCK, SIZE_BLOCK);
 }
 
 // принимает area для вывода и отображает ее в стакане
 const showArea = (area) => {
-  // очистка всего context
+  console.log(count++);
+  //! очистка всего context
   context.clearRect(0, 0, canvas.width, canvas.height);
 
   area.forEach( (row, r) => {
     row.forEach( (elem, c) => {
       if (elem !== '0') {
+         context.strokeStyle = 'gray';
         // console.log('elem = ', elem, ' at ', r, c);
         //* выбор цвета элемента блока
         if (elem === 'g') {
@@ -321,14 +341,17 @@ const showArea = (area) => {
           context.fillStyle = 'orangered';
         } else if (elem === 'y')  {
           context.fillStyle = 'yellow';
-        // ... others
-
         } else {
           context.fillStyle = 'magenta';
         }
-        
-        showBlockCoord(r, c);
+      } else {
+        context.fillStyle = 'transparent';
+        context.strokeStyle = 'transparent';
       }
+      // showBlockCoord(r, c);
+      context.fillRect( SIZE_BLOCK*(c), SIZE_BLOCK*(r), SIZE_BLOCK, SIZE_BLOCK);
+      context.strokeRect( SIZE_BLOCK*(c), SIZE_BLOCK*(r), SIZE_BLOCK, SIZE_BLOCK);
+
     });
   });
 }
@@ -342,24 +365,17 @@ window.addEventListener('keydown', (event) => {
   if (key == 'Enter') {
     // console.log('Enter Rotate');
     game.enterRotateTetromino();
-    console.log('rotationIndex: ', game.activeTetromino.rotationIndex);
-  
   } else if (key === ' ') {
-    // console.log('Rotate Space');
     game.rotateTetromino();
-    console.log('rotationIndex: ', game.activeTetromino.rotationIndex);
-  
+  } else if (key === 'ArrowUp') {
+    game.activeTetromino.block = game.rotateRight90();
   } else if (key === 'ArrowLeft') {
     game.moveLeft();
-  
   } else if (key === 'ArrowRight') {
     game.moveRight();
-
   } else if (key === 'ArrowDown') {
     game.moveDown();
-    
   } else if (key === 'Escape') {
-    // перезагрузка игры 
     console.log("перезагрузка игры");
     game.resetGame();
     // game.newMove();
@@ -370,4 +386,52 @@ window.addEventListener('keydown', (event) => {
   showArea(game.viewArea);
 });
 
-showArea(game.area);
+
+// showArea(game.area);
+
+
+
+
+// const gameAction = () => {
+  //   console.log(count++);
+//   showArea(game.area);
+// }
+
+
+/**
+const tetramino = [
+  ["o", "f", "o", "1"],
+  ["o", "f", "o", "2"],
+  ["f", "f", "o", "3"]
+];
+
+function rotateRight90(matrix) {
+  let result = [];
+  for (let i = matrix.length - 1; i >= 0; i--) {
+    for (let j = 0; j < matrix[i].length; j++) {
+      if (!result[j]) {
+        result[j] = [];
+      }
+      result[j].push(matrix[i][j]);
+    }
+  }
+  return result;
+}
+
+console.log(tetramino);
+let rotateTetramino = rotateRight90(tetramino);
+console.log(rotateTetramino);
+*/
+
+var count = 0;
+
+setInterval(() => {
+  
+  game.moveDown();
+  showArea(game.viewArea);
+
+}, 1000);
+
+/*
+http://localhost:52330/index.html
+*/
